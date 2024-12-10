@@ -1,0 +1,179 @@
+using System;
+using System.Data.SqlClient;
+using System.Windows.Forms;
+
+namespace InventoryManagementSystem_GloriousSole
+{
+    public partial class UpdateInventoryForm : Form
+    {
+        private string _connectionString = @"Data Source=(LocalDB)\MSSQLLocalDB;AttachDbFilename=""C:\path\to\database\GS_IMS.mdf"";Integrated Security=True;Connect Timeout=30";
+
+        public UpdateInventoryForm()
+        {
+            InitializeComponent();
+            LoadItems();
+        }
+
+        private void NavigateToForm(Form form)
+        {
+            this.Hide();
+            form.ShowDialog();
+        }
+
+        private void btnDashboard_Click(object sender, EventArgs e) => NavigateToForm(new DashboardForm());
+        private void btnViewInventory_Click(object sender, EventArgs e) => NavigateToForm(new ViewInventoryForm());
+        private void btnInvoiceLogs_Click(object sender, EventArgs e) => NavigateToForm(new InvoiceLogsForm());
+        private void btnManageAccount_Click(object sender, EventArgs e) => NavigateToForm(new ManageAccountForm());
+
+        private void btnLogout_Click(object sender, EventArgs e)
+        {
+            if (MessageBox.Show("Are you sure you want to log out?", "Logout Confirmation", MessageBoxButtons.YesNo, MessageBoxIcon.Question) == DialogResult.Yes)
+            {
+                Application.Exit();
+            }
+        }
+
+        private void LoadItems()
+        {
+            try
+            {
+                using var con = new SqlConnection(_connectionString);
+                con.Open();
+
+                string query = "SELECT DISTINCT Brand, Model FROM Inventory";
+                using var cmd = new SqlCommand(query, con);
+                using var reader = cmd.ExecuteReader();
+
+                cbItemsRemove.Items.Clear();
+                cbItemUpdate.Items.Clear();
+
+                while (reader.Read())
+                {
+                    string item = $"{reader["Brand"]} - {reader["Model"]}";
+                    cbItemsRemove.Items.Add(item);
+                    cbItemUpdate.Items.Add(item);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error loading items: {ex.Message}");
+            }
+        }
+
+        private bool ValidateInputs(string brand, string model, string size, string quantity, string price)
+        {
+            if (string.IsNullOrWhiteSpace(brand) || string.IsNullOrWhiteSpace(model) || string.IsNullOrWhiteSpace(size) || string.IsNullOrWhiteSpace(quantity) || string.IsNullOrWhiteSpace(price))
+            {
+                MessageBox.Show("All fields are required.");
+                return false;
+            }
+
+            if (!decimal.TryParse(size, out _) || !int.TryParse(quantity, out _) || !decimal.TryParse(price, out _))
+            {
+                MessageBox.Show("Size, Quantity, and Price must be numeric values.");
+                return false;
+            }
+
+            return true;
+        }
+
+        private void PerformDatabaseAction(string query, Action<SqlCommand> parameterSetter, Action successAction, string errorMessage = "Operation failed.")
+        {
+            try
+            {
+                using var con = new SqlConnection(_connectionString);
+                con.Open();
+                using var cmd = new SqlCommand(query, con);
+                parameterSetter(cmd);
+                if (cmd.ExecuteNonQuery() > 0) successAction();
+                else MessageBox.Show(errorMessage);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error: {ex.Message}");
+            }
+        }
+
+        private void btnAdd_Click(object sender, EventArgs e)
+        {
+            if (!ValidateInputs(txtBrandAdd.Text, txtModelAdd.Text, txtSizeAdd.Text, txtQuantityAdd.Text, txtPriceAdd.Text)) return;
+
+            string query = "INSERT INTO Inventory (Brand, Model, Size, Quantity, PricePerPiece) VALUES (@Brand, @Model, @Size, @Quantity, @PricePerPiece)";
+            PerformDatabaseAction(query, cmd =>
+            {
+                cmd.Parameters.AddWithValue("@Brand", txtBrandAdd.Text);
+                cmd.Parameters.AddWithValue("@Model", txtModelAdd.Text);
+                cmd.Parameters.AddWithValue("@Size", decimal.Parse(txtSizeAdd.Text));
+                cmd.Parameters.AddWithValue("@Quantity", int.Parse(txtQuantityAdd.Text));
+                cmd.Parameters.AddWithValue("@PricePerPiece", decimal.Parse(txtPriceAdd.Text));
+            }, () =>
+            {
+                MessageBox.Show("Item added successfully.");
+                LoadItems();
+                txtBrandAdd.Clear();
+                txtModelAdd.Clear();
+                txtSizeAdd.Clear();
+                txtQuantityAdd.Clear();
+                txtPriceAdd.Clear();
+            });
+        }
+
+        private void btnRemove_Click(object sender, EventArgs e)
+        {
+            string selectedItem = cbItemsRemove.Text;
+            if (string.IsNullOrWhiteSpace(selectedItem) || !int.TryParse(txtQuantityRemove.Text, out int quantity) || quantity <= 0)
+            {
+                MessageBox.Show("Please select a valid item and quantity.");
+                return;
+            }
+
+            string[] details = selectedItem.Split(new[] { " - " }, StringSplitOptions.None);
+            string query = "UPDATE Inventory SET Quantity = Quantity - @Quantity WHERE Brand = @Brand AND Model = @Model AND Quantity >= @Quantity";
+
+            PerformDatabaseAction(query, cmd =>
+            {
+                cmd.Parameters.AddWithValue("@Brand", details[0]);
+                cmd.Parameters.AddWithValue("@Model", details[1]);
+                cmd.Parameters.AddWithValue("@Quantity", quantity);
+            }, () =>
+            {
+                MessageBox.Show("Item removed successfully.");
+                LoadItems();
+                txtQuantityRemove.Clear();
+                cbItemsRemove.SelectedIndex = -1;
+            }, "Insufficient stock or item not found.");
+        }
+
+        private void btnUpdate_Click(object sender, EventArgs e)
+        {
+            if (cbItemUpdate.SelectedItem == null)
+            {
+                MessageBox.Show("Please select an item to update.");
+                return;
+            }
+
+            string selectedItem = cbItemUpdate.SelectedItem.ToString();
+            string[] details = selectedItem.Split(new[] { " - " }, StringSplitOptions.None);
+
+            string query = "UPDATE Inventory SET Size = @Size, Quantity = @Quantity, PricePerPiece = @PricePerPiece WHERE Brand = @Brand AND Model = @Model";
+            PerformDatabaseAction(query, cmd =>
+            {
+                cmd.Parameters.AddWithValue("@Brand", details[0]);
+                cmd.Parameters.AddWithValue("@Model", details[1]);
+                cmd.Parameters.AddWithValue("@Size", decimal.Parse(txtSizeUpdate.Text));
+                cmd.Parameters.AddWithValue("@Quantity", int.Parse(txtQuantityUpdate.Text));
+                cmd.Parameters.AddWithValue("@PricePerPiece", decimal.Parse(txtPriceUpdate.Text));
+            }, () =>
+            {
+                MessageBox.Show("Item updated successfully.");
+                LoadItems();
+                cbItemUpdate.SelectedIndex = -1;
+                txtBrandUpdate.Clear();
+                txtModelUpdate.Clear();
+                txtSizeUpdate.Clear();
+                txtQuantityUpdate.Clear();
+                txtPriceUpdate.Clear();
+            });
+        }
+    }
+}
