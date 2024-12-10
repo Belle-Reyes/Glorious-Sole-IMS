@@ -1,0 +1,111 @@
+(Log In) 
+private void btnLogin_Click(object sender, EventArgs e)
+{
+    using (SqlConnection con = new SqlConnection(connectionString))
+    {
+        try
+        {
+            using (SqlCommand cm = new SqlCommand("SELECT UserID, Role, FirstName, LastName FROM Users WHERE Username=@username AND PasswordHash=@password", con))
+            {
+                cm.Parameters.AddWithValue("@username", txtUsername.Text);
+                cm.Parameters.AddWithValue("@password", txtPassword.Text);
+                con.Open();
+
+                using (SqlDataReader dr = cm.ExecuteReader())
+                {
+                    if (dr.Read())
+                    {
+                        UserSession.UserId = Convert.ToInt32(dr["UserID"]);
+                        UserSession.Role = dr["Role"].ToString();
+                        UserSession.FullName = $"{dr["FirstName"]} {dr["LastName"]}";
+                        UserSession.Username = txtUsername.Text;
+
+                        MessageBox.Show($"Welcome! {UserSession.FullName} {(UserSession.Role.Equals("Admin", StringComparison.OrdinalIgnoreCase) ? "(Admin)" : "")}", "ACCESS GRANTED", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        dashboardForm main = new dashboardForm();
+                        this.Hide();
+                        main.ShowDialog();
+                    }
+                    else
+                    {
+                        MessageBox.Show("Invalid username or password!", "ACCESS DENIED", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        txtUsername.Clear();
+                        txtPassword.Clear();
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show("Error: " + ex.Message);
+        }
+    }
+}
+
+(Forget Password)
+    private void btnForgotPassword_Click(object sender, EventArgs e)
+    {
+        forgotPasswordForm fp = new forgotPasswordForm();
+        this.Hide();
+        fp.ShowDialog();
+    }
+}
+
+private void btnSubmit_Click(object sender, EventArgs e)
+{
+    using (SqlConnection con = new SqlConnection(connectionString))
+    {
+        try
+        {
+            using (SqlCommand cm = new SqlCommand("SELECT * FROM Users WHERE Username=@username", con))
+            {
+                cm.Parameters.AddWithValue("@username", txtEmail.Text);
+                con.Open();
+
+                using (SqlDataReader dr = cm.ExecuteReader())
+                {
+                    if(dr.Read())
+                        {
+                        string role = dr["Role"].ToString();
+
+                        if (role.Equals("Admin", StringComparison.OrdinalIgnoreCase))
+                        {
+                            MessageBox.Show($"Welcome {txtEmail.Text} (Admin)", "ACCESS GRANTED", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                            dashboardForm main = new dashboardForm();
+                            this.Hide();
+                            main.ShowDialog();
+                        }
+                        else
+                        {
+                            MessageBox.Show($"Welcome {txtEmail.Text}", "ACCESS GRANTED", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                            dashboardForm main = new dashboardForm();
+                            this.Hide();
+                            main.ShowDialog();
+                        }
+                    }
+                    else
+                    {
+                        MessageBox.Show("Invalid username!", "ACCESS DENIED", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                        txtEmail.Clear();
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show("Error: " + ex.Message);
+        }
+    }
+}
+
+(Encapsulation)
+public static class UserSession
+{
+    public static string Username { get; set; }
+    public static string Role { get; set; }
+    public static string FullName { get; set; }
+    public static int UserId { get; set; }
+}
+
+Suggest ni Ma'am
+txtPassword.PasswordChar = '*';
+txtEmail.PasswordChar  = '*';
