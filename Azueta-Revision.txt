@@ -1,0 +1,19 @@
+private void LoadData()
+{
+    using (SqlConnection con = new SqlConnection(connectionString))
+    {
+        try
+        {
+            con.Open();
+            SqlCommand cmd = new SqlCommand("SELECT DISTINCT FullName, Action, Item, Status, LogDate FROM Logs;", con);
+            SqlDataAdapter da = new SqlDataAdapter(cmd);
+            DataTable dt = new DataTable();
+            da.Fill(dt);
+            dgvInvoiceLogs.DataSource = dt;
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show("Error: " + ex.Message);
+        }
+    }
+}
