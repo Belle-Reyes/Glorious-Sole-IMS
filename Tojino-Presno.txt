@@ -1,0 +1,43 @@
+        private void InitializeSortComboBox()
+        {
+            cbSortBy.Items.AddRange(new string[] {
+                "Recently Updated", "A-Z", "Z-A", "Price (Low to High)", "Price (High to Low)"
+            });
+            cbSortBy.SelectedIndex = 1; // Default sort order
+        }
+---------------------------------------------------------------------------------------
+
+ private void LoadData(string sortOrder = "A-Z")
+ {
+     using (SqlConnection con = new SqlConnection(connectionString))
+     using (SqlCommand cm = new SqlCommand())
+     {
+         cm.Connection = con;
+
+         try
+         {
+             con.Open(); // Open connection
+             string query = @"SELECT Brand, Model, Size, Quantity, PricePerPiece, (Quantity * PricePerPiece) AS TotalPrice FROM Inventory";
+
+             // Append sorting order to the query
+             switch (sortOrder)
+             {
+                 case "A-Z": query += " ORDER BY Brand ASC"; break;
+                 case "Z-A": query += " ORDER BY Brand DESC"; break;
+                 case "Price (Low to High)": query += " ORDER BY PricePerPiece ASC"; break;
+                 case "Price (High to Low)": query += " ORDER BY PricePerPiece DESC"; break;
+                 case "Recently Updated": query += " ORDER BY UpdatedAt DESC"; break;
+             }
+
+             cm.CommandText = query; // Set command text
+             SqlDataAdapter da = new SqlDataAdapter(cm);
+             DataTable dt = new DataTable();
+             da.Fill(dt); // Fill DataTable
+             dgvInventoryView.DataSource = dt; // Bind to DataGridView
+         }
+         catch (Exception ex)
+         {
+             MessageBox.Show("Error: " + ex.Message); // Show errors
+         }
+     }
+ }
